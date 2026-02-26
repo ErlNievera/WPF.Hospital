@@ -37,7 +37,6 @@ namespace WPF.Hospital.Repository
                 _context.Patients.Remove(patient);
             }
         }
-
         public int Save() => _context.SaveChanges();
     }
 }

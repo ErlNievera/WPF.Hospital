@@ -20,54 +20,145 @@ namespace WPF.Hospital.Service
             _patientRepository = patientRepository;
         }
 
-        public void Add(Patient patient)
+        public (bool Ok, string Message) Create(Patient patient)
         {
-            _patientRepository.Add(new Model.Patient
+            if (patient == null)
+                return (false, "Patient cannot be empty.");
+
+            if (string.IsNullOrWhiteSpace(patient.FirstName))
+                return (false, "First name must not be empty.");
+
+            if (string.IsNullOrWhiteSpace(patient.LastName))
+                return (false, "Last name must not be empty.");
+
+            if (patient.Age <= 0)
+                return (false, "Age must be greater than 0.");
+
+            if (patient.BirthDate >= DateTime.Now.Date)
+                return (false, "Birthdate must be earlier than today.");
+
+            int calculatedAge = DateTime.Now.Year - patient.BirthDate.Year;
+            if (patient.BirthDate.Date > DateTime.Now.AddYears(-calculatedAge))
+                calculatedAge--;
+
+            if (patient.Age != calculatedAge)
+                return (false, "Age is not consistent with Birthdate.");
+
+            var existing = _patientRepository
+                .GetAll()
+                .FirstOrDefault(p =>
+                    p.FirstName.Equals(patient.FirstName, StringComparison.OrdinalIgnoreCase) &&
+                    p.LastName.Equals(patient.LastName, StringComparison.OrdinalIgnoreCase) &&
+                    p.Birthdate.Date == patient.BirthDate.Date);
+
+            if (existing != null)
+                return (false, "Duplicate patient exists.");
+
+            try
             {
-                FirstName = patient.FirstName,
-                LastName = patient.LastName,
-                Age = patient.Age,
-                Birthdate = patient.BirthDate
-            });
-            _patientRepository.Save();
+                var newPatient = new Model.Patient
+                {
+                    FirstName = patient.FirstName,
+                    LastName = patient.LastName,
+                    Age = patient.Age,
+                    Birthdate = patient.BirthDate
+                };
+
+                _patientRepository.Add(newPatient);
+                _patientRepository.Save();
+
+                return (true, "Patient successfully created.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error creating patient: {ex.Message}");
+            }
         }
 
-        public void Delete(int id)
+        public (bool Ok, string Message) Delete(int id)
         {
-            _patientRepository.Delete(id);
-            _patientRepository.Save();
+            var patient = _patientRepository.Get(id); 
+            if (patient == null)
+                return (false, "Selected patient does not exist.");
+
+            var hasHistory = _historyRepository.GetAll()
+                .Any(h => h.PatientId == id);
+
+            if (hasHistory)
+                return (false, "Cannot delete patient with existing history records.");
+
+            try
+            {
+                _patientRepository.Delete(id);
+                _patientRepository.Save();
+                return (true, "Patient deleted successfully.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error deleting patient: {ex.Message}");
+            }
         }
 
-        public Patient Get(int id) 
+        public Patient? Get(int id)
         {
-            Model.Patient p = _patientRepository.Get(id);
+            var patientEntity = _patientRepository.Get(id); 
+            if (patientEntity == null)
+                return null;
+
             return new Patient
             {
-                Id = id,
-                FirstName = p.FirstName,
-                LastName = p.LastName,
-                Age = p.Age,
-                BirthDate = p.Birthdate,
-                History = _historyRepository.GetByPatientId(id)
-                    .Select(h => new History
-                    {
-                        Id = h.Id,
-                        Procedure = h.Procedure,
-                    })
+                Id = patientEntity.Id,
+                FirstName = patientEntity.FirstName,
+                LastName = patientEntity.LastName,
+                Age = patientEntity.Age,
+                BirthDate = patientEntity.Birthdate
             };
         }
 
-        public IEnumerable<Patient> GetAll()
+        public List<Patient> GetAll()
         {
-            return _patientRepository.GetAll()
-                .Select(p => new Patient()
-                {
-                    Id = p.Id,
-                    FirstName = p.FirstName,
-                    LastName = p.LastName,
-                    Age = p.Age,
-                    BirthDate = p.Birthdate,
-                });           
+            var patients = _patientRepository.GetAll();
+            return patients.Select(p => new Patient
+            {
+                Id = p.Id,
+                FirstName = p.FirstName,
+                LastName = p.LastName,
+                Age = p.Age,
+                BirthDate = p.Birthdate
+            }).ToList();
+        }
+
+        public (bool Ok, string Message) Update(Patient patient)
+        {
+            if (patient == null)
+                return (false, "Patient cannot be empty.");
+
+            var existingPatient = _patientRepository.Get(patient.Id); 
+            if (existingPatient == null)
+                return (false, "Selected patient no longer exists.");
+
+            // Reuse same validation logic as Create
+            var validation = Create(patient);
+            if (!validation.Ok)
+                return validation;
+
+            // Update fields
+            existingPatient.FirstName = patient.FirstName;
+            existingPatient.LastName = patient.LastName;
+            existingPatient.Age = patient.Age;
+            existingPatient.Birthdate = patient.BirthDate;
+
+            try
+            {
+                _patientRepository.Update(existingPatient);
+                _patientRepository.Save();
+
+                return (true, "Patient updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error updating patient: {ex.Message}");
+            }
         }
     }
 }

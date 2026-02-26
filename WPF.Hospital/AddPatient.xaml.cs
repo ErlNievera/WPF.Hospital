@@ -31,7 +31,7 @@ namespace WPF.Hospital
 
         private void btnAddPatient_Click(object sender, RoutedEventArgs e)
         {
-            _patientService.Add(new DTO.Patient()
+            var result = _patientService.Create(new DTO.Patient()
             {
                 FirstName = ((PatientViewModel)DataContext).FirstName,
                 LastName = ((PatientViewModel)DataContext).LastName,
@@ -39,7 +39,19 @@ namespace WPF.Hospital
                 BirthDate = ((PatientViewModel)DataContext).Birthdate
 
             });
-            MessageBox.Show("Patient Added Sucessfully");
+
+
+            if (!result.Ok)
+            {
+                MessageBox.Show(result.Message);
+                return;
+            }
+            if (result.Ok)
+            {
+                MessageBox.Show(result.Message);
+                this.Close();
+            }
+
         }
     }
 }

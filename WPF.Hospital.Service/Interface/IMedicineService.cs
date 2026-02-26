@@ -4,15 +4,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WPF.Hospital.DTO;
+using WPF.Hospital.Model;
 
 namespace WPF.Hospital.Service.Interface
 {
-    public interface IPatientService 
+    public interface IMedicineService 
     {
-        List<Patient> GetAll();
-        Patient? Get(int id);
-        (bool Ok, string Message) Create(Patient patient);
-        (bool Ok, string Message) Update(Patient patient);
+        List<Medicine> GetAll();
+        Medicine? Get(int id);
+        (bool Ok, string Message) Create(Medicine medicine);
+        (bool Ok, string Message) Update(Medicine medicine);
         (bool Ok, string Message) Delete(int id);
     }
 }
